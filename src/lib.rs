@@ -11,8 +11,6 @@ extern crate rocksdb;
 pub struct RocksDB {
     pub db: Arc<DBWithThreadMode<MultiThreaded>>
 }
-
-    // impl Database for RocksDB {
     #[pymethods]
     impl RocksDB {
     #[new]
