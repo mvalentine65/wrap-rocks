@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use rocksdb::DB;
+use rocksdb::{DB, DBWithThreadMode, MultiThreaded};
 use std::path::Path;
 use std::sync::Arc;
 use std::fs;
@@ -9,7 +9,7 @@ extern crate rocksdb;
 #[pyclass]
 #[derive(Clone)]
 pub struct RocksDB {
-    pub db: Arc<DB>
+    pub db: Arc<DBWithThreadMode<MultiThreaded>>
 }
 
     // impl Database for RocksDB {
@@ -17,29 +17,23 @@ pub struct RocksDB {
     impl RocksDB {
     #[new]
     fn new(path: &str) -> Self {
-
-        // Create directory, if needed
-    if !Path::new(path).exists() {
-        match fs::create_dir_all(path) {
-            Ok(_) => {},
-            Err(_error) => panic!("Unable to create directory at {}.", path)
-        };
-    }
-
-    // Set options
+// create directory and all parent directory
+        if !Path::new(path).exists() {
+            match fs::create_dir_all(path) {
+                Ok(_) => {},
+                Err(_error) => panic!("Failed to create directory at {}.", path)
+            };
+        }
+// TODO: create options class
+// TODO: optimize options in python
     let mut opts = rocksdb::Options::default();
-    //opts.set_compaction_style(DBCompactionStyle::Universal);
     opts.create_if_missing(true);
-    //opts.set_compression_type(DBCompressionType::None);
     opts.increase_parallelism(24);
 
-        // Connect to database
-        let database = match DB::open(&opts, path) {
+        let database = match DBWithThreadMode::open(&opts, path) {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}",path, e)
         };
-
-        // Return
         RocksDB {
             db: Arc::new(database)
         }
