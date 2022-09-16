@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use rocksdb::{DB, DBWithThreadMode, MultiThreaded};
+use rocksdb::{DBWithThreadMode, MultiThreaded};
 use std::path::Path;
 use std::sync::Arc;
 use std::fs;
