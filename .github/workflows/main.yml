@@ -12,7 +12,7 @@ jobs:
   build-nightly-only:
     name: Build nightly only
     runs-on: ubuntu-latest
-    container: saferq/wrap-rocks
+    container: saferq/wrap-rocks:0.1.0
     steps:
       - uses: actions/checkout@v1
       - name: Install  rust
@@ -39,7 +39,7 @@ jobs:
   build-nightly-only-abi3:
     name: Build nightly only abi3
     runs-on: ubuntu-latest
-    container: saferq/wrap-rocks
+    container: saferq/wrap-rocks:0.1.0
     steps:
       - uses: actions/checkout@v1
       - name: Install rust
