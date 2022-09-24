@@ -11,7 +11,7 @@ ENV LIBCLANG_PATH=/opt/rh/llvm-toolset-7/root/usr/lib64/ \
 RUN curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # add cargo and python interpreters to PATH
-ENV PATH /opt/python/cp38-cp38/bin:/opt/python/cp39-cp39/bin:/opt/python/cp310-cp310/bin:/opt/python/cp311-cp311/bin:$HOME/.cargo/bin:$PATH
+ENV PATH /opt/python/cp38-cp38/bin:/opt/python/cp39-cp39/bin:/opt/python/cp310-cp310/bin:/opt/python/cp311-cp311/bin:/root/.cargo/bin:$PATH
 
 # install maturin in each supported version of python
 RUN python3.8 -m pip install maturin && \

@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: build
         run: |
-          source $HOME/.cargo/env
+          source /root/.cargo/env
           for PYBIN in /opt/python/cp3[891]*/bin; do
             "${PYBIN}/maturin" build -m nightly-only/Cargo.toml -i "${PYBIN}/python" --release
           done
