@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use rocksdb::{DBWithThreadMode, MultiThreaded};
+use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded};
 use std::path::Path;
 use std::sync::Arc;
 use std::fs;
@@ -27,7 +27,7 @@ pub struct RocksDB {
     let mut opts = rocksdb::Options::default();
     opts.create_if_missing(true);
     opts.increase_parallelism(24);
-
+    opts.set_compression_type(DBCompressionType::Snappy);
         let database = match DBWithThreadMode::open(&opts, path) {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}",path, e)
