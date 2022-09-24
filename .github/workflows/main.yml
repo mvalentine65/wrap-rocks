@@ -1,6 +1,6 @@
 
 
-name: Build
+name: Build wrap-rocks
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-nightly-only:
-    name: Build nightly only
+    name: Build wheels
     runs-on: ubuntu-latest
     container: saferq/wrap-rocks:0.2.0
     steps:
@@ -25,7 +25,7 @@ jobs:
           done
       - name: auditwheel
         run: |
-          for wheel in nightly-only/target/wheels/*.whl; do
+          for wheel in target/wheels/*.whl; do
               auditwheel repair "${wheel}"
           done
 
@@ -45,10 +45,3 @@ jobs:
       #   run: |
       #       python3.11 -m maturin build -m Cargo.toml  -i python3.11 --release
       #       done
-      # Auditwheel isn't generally necessary. This is only shown as refernce for cases where you link
-      # external libraries, in which case you have to set manylinux to off and then use auditwheel repair
-      - name: Auditwheel repair
-        run: |
-          for wheel in nightly-only/target/wheels/*.whl; do
-              auditwheel repair "${wheel}"
-          done
