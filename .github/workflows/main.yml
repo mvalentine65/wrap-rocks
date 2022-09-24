@@ -20,12 +20,21 @@ jobs:
       # Insert steps here to install you other dependencies. Note that you're running inside of cent os 7, not ubuntu
       #- name: Installing custom dependency
       #  run: echo "Installing yum plugins"
-      - name: Build
+      - name: Build Python3.8
         run: |
-          #source $HOME/.cargo/env
-          for PYBIN in /opt/python/cp3[891]*/bin; do
-          #"${PYBIN}/pip" install maturin cffi
-            "${PYBIN}/python" -m maturin build -m Cargo.toml -i "${PYBIN}/python" --release # --manylinux 2014
+            python3.8 -m maturin build -i python3.8 --release # --manylinux 2014
+          done
+      - name: Build Python3.9
+        run: |
+            python3.9 -m maturin build -i python3.9 --release
+          done
+      - name: Build Python3.10
+        run: |
+            python3.10 -m maturin build -i python3.10 --release
+          done
+      - name: Build Python3.11
+        run: |
+            python3.11 -m maturin build -i python3.11 --release
           done
       # Auditwheel isn't generally necessary. This is only shown as refernce for cases where you link
       # external libraries, in which case you have to set manylinux to off and then use auditwheel repair
