@@ -12,20 +12,20 @@ jobs:
   build-nightly-only:
     name: Build nightly only
     runs-on: ubuntu-latest
-    container: saferq/wrap-rocks:0.1.0
+    container: saferq/wrap-rocks:0.2.0
     steps:
       - uses: actions/checkout@v1
-      - name: Install  rust
-        run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        #- name: Install  rust
+        #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       # Insert steps here to install you other dependencies. Note that you're running inside of cent os 7, not ubuntu
-      - name: Installing custom dependency
-        run: echo "Installing yum plugins"
+      #- name: Installing custom dependency
+      #  run: echo "Installing yum plugins"
       - name: Build
         run: |
           source $HOME/.cargo/env
-          for PYBIN in /opt/python/cp3[6789]*/bin; do
-            "${PYBIN}/pip" install maturin cffi
-            "${PYBIN}/maturin" build -m Cargo.toml -i "${PYBIN}/python" --release -b cffi #--manylinux 2014
+          for PYBIN in /opt/python/cp3[891]*/bin; do
+          #"${PYBIN}/pip" install maturin cffi
+            "${PYBIN}/maturin" build -m Cargo.toml -i "${PYBIN}/python" --release # --manylinux 2014
           done
       # Auditwheel isn't generally necessary. This is only shown as refernce for cases where you link
       # external libraries, in which case you have to set manylinux to off and then use auditwheel repair
@@ -34,21 +34,3 @@ jobs:
           for wheel in nightly-only/target/wheels/*.whl; do
               auditwheel repair "${wheel}"
           done
-  # This is similar to the above, except we're only using the lowest supported python version to build a single
-  # abi3 wheel
-  build-nightly-only-abi3:
-    name: Build nightly only abi3
-    runs-on: ubuntu-latest
-    container: saferq/wrap-rocks:0.1.0
-    steps:
-      - uses: actions/checkout@v1
-      - name: Install rust
-        run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - name: Install maturin and cffi
-        run: /opt/python/cp36-cp36m/bin/pip install maturin cffi
-      - name: Build with maturin
-        run: |
-          source $HOME/.cargo/env
-          /opt/python/cp36-cp36m/bin/maturin build -m Cargo.toml -i /opt/python/cp36-cp36m/bin/python --release -b cffi
-      - name: Auditwheel repair
-        run: auditwheel repair nightly-only-abi3/target/wheels/*.whl
