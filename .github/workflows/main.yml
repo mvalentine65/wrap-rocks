@@ -28,7 +28,15 @@ jobs:
           for wheel in target/wheels/*.whl; do
               auditwheel repair "${wheel}"
           done
-
+      - name: install twine
+        run: |
+          python3 -m pip install twine
+      - name: upload to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: ${{ secrets.PYPI_USERNAME }}
+          password: ${{ secrets.PYPI_PASSWORD }}
+          packages_dir: target/wheels
       # - name: Build Python3.8
       #   run: |
       #       python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
