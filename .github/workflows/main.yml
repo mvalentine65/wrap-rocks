@@ -31,7 +31,7 @@ jobs:
       - name: pypi upload
         run: |
           for wheel in target/wheels/*; do
-            python3.10 -m maturin upload ${wheel} -u ${{ secret.PYPY_USERNAME }} -p ${{ secret.PYPI_PASSWORD }}
+            python3.10 -m maturin upload ${wheel} -u ${{ secrets.PYPY_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
         # - name: Build Python3.8
       #   run: |
       #       python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
