@@ -15,22 +15,34 @@ jobs:
     container: saferq/wrap-rocks:0.2.0
     steps:
       - uses: actions/checkout@v1
-      - name: Build Python3.8
+      - name: build
         run: |
-            python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
-            done
-      - name: Build Python3.9
+          source $HOME/.cargo/env
+          for PYBIN in /opt/python/cp3[891]*/bin; do
+            "${PYBIN}/maturin" build -m nightly-only/Cargo.toml -i "${PYBIN}/python" --release
+          done
+      - name: auditwheel
         run: |
-            python3.9 -m maturin build -m Cargo.toml  -i python3.9 --release
-            done
-      - name: Build Python3.10
-        run: |
-            python3.10 -m maturin build -m Cargo.toml  -i python3.10 --release
-            done
-      - name: Build Python3.11
-        run: |
-            python3.11 -m maturin build -m Cargo.toml  -i python3.11 --release
-            done
+          for wheel in nightly-only/target/wheels/*.whl; do
+              auditwheel repair "${wheel}"
+          done
+
+      # - name: Build Python3.8
+      #   run: |
+      #       python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
+      #       done
+      # - name: Build Python3.9
+      #   run: |
+      #       python3.9 -m maturin build -m Cargo.toml  -i python3.9 --release
+      #       done
+      # - name: Build Python3.10
+      #   run: |
+      #       python3.10 -m maturin build -m Cargo.toml  -i python3.10 --release
+      #       done
+      # - name: Build Python3.11
+      #   run: |
+      #       python3.11 -m maturin build -m Cargo.toml  -i python3.11 --release
+      #       done
       # Auditwheel isn't generally necessary. This is only shown as refernce for cases where you link
       # external libraries, in which case you have to set manylinux to off and then use auditwheel repair
       - name: Auditwheel repair
