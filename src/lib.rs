@@ -52,6 +52,21 @@ pub struct RocksDB {
         Some(sequence)
     }
 
+
+    fn put_bytes(&self, key: String, object: &[u8]) {
+        self.db.put(key.as_bytes(), object).unwrap();
+    }
+
+    fn get_bytes(&self, key: String) -> Option<Vec<u8>> {
+        let sequence = match self.db.get(key.as_bytes()) {
+            Ok(Some(result)) => result,
+            Ok(None) => return None,
+            Err(e) => panic!("Received database error when trying to retrieve sequence, error: {}", e)
+        };
+
+        Some(sequence)
+    }
+
     fn delete(&self, header: String) -> bool {
         self.db.delete(header.as_bytes()).is_ok()
     }
