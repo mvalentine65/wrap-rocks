@@ -59,13 +59,12 @@ pub struct RocksDB {
         self.db.put(key.as_bytes(), object).unwrap();
     }
 
-    fn get_bytes(&self, key: String) -> Option<PyBytes> {
-        let gil = Python::acquire_gil();
-        let py = gil.python();
+    fn get_bytes(&self, py: Python, key: String) -> PyObject {
+        // let gil = Python::acquire_gil();
+        // let py = gil.python();
         match self.db.get(key.as_bytes()) {
-            Ok(Some(result)) => Some(*<&PyBytes as Into<T>>::into(PyBytes::new(py, result.as_slice()))),
-            Ok(None) => return None,
-            Err(e) => panic!("Received database error when trying to retrieve sequence, error: {}", e)
+            Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
+            _ => panic!("Received database error when trying to retrieve sequence")
         }
     }
 
@@ -85,6 +84,7 @@ pub struct RocksDB {
             Err(_) => 0
         }
     }
+
     fn batch_get(&self, keys: Vec<String>) -> Vec<String> {
         let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_bytes()).collect();
         let packed_results = self.db.multi_get(byte_keys.iter());
