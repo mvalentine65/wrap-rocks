@@ -3,6 +3,8 @@ use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded};
 use std::path::Path;
 use std::sync::Arc;
 use std::fs;
+use pyo3::types::PyBytes;
+
 extern crate rocksdb;
 
 
@@ -57,13 +59,14 @@ pub struct RocksDB {
         self.db.put(key.as_bytes(), object).unwrap();
     }
 
-    fn get_bytes(&self, key: String) -> Option<Vec<u8>> {
+    fn get_bytes(&self, key: String) -> Option<&PyBytes> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
         let sequence = match self.db.get(key.as_bytes()) {
-            Ok(Some(result)) => result,
+            Ok(Some(result)) => PyBytes::new(py, result.as_slice()),
             Ok(None) => return None,
             Err(e) => panic!("Received database error when trying to retrieve sequence, error: {}", e)
         };
-
         Some(sequence)
     }
 
