@@ -63,7 +63,7 @@ pub struct RocksDB {
         let gil = Python::acquire_gil();
         let py = gil.python();
         match self.db.get(key.as_bytes()) {
-            Ok(Some(result)) => Some(PyBytes::new(py, result.as_slice())).into_ref(py),
+            Ok(Some(result)) => Some(PyBytes::new(py, result.as_slice()).into_ref(py)),
             Ok(None) => return None,
             Err(e) => panic!("Received database error when trying to retrieve sequence, error: {}", e)
         }
