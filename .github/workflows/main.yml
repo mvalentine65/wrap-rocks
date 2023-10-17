@@ -9,8 +9,31 @@ on:
   pull_request:
 
 jobs:
-  build-nightly-only:
-    name: Build wheels
+  build-312:
+    name: Build wheel-312
+    runs-on: ubuntu-latest
+    container: saferq/py312:latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install stable rust
+        run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      - name: build-312
+        run: |
+          source $HOME/.cargo/env
+          do python3.12 -m maturin build -m Cargo.toml -i python3.12 --release
+          done
+      - name: auditwheel-312
+        run: |
+          for wheel in target/wheels/*.whl; do
+            auditwheel repair "${wheel}"
+            done
+      - name: pypi upload
+        run: |
+          for wheel in target/wheels/*; do
+            python3.12 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
+          done
+  build-38-311:
+    name: Build wheels 38-311
     runs-on: ubuntu-latest
     container: saferq/wrap-rocks:0.2.0
     steps:
@@ -33,6 +56,7 @@ jobs:
           for wheel in target/wheels/*; do
             python3.10 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
           done
+
         # - name: Build Python3.8
       #   run: |
       #       python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
