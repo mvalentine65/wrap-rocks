@@ -20,7 +20,7 @@ jobs:
       - name: build-312
         run: |
           source $HOME/.cargo/env
-          do python3.12 -m maturin build -m Cargo.toml -i python3.12 --release
+          python3.12 -m maturin build -m Cargo.toml -i python3.12 --release
           done
       - name: auditwheel-312
         run: |
