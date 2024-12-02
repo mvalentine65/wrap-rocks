@@ -9,4 +9,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.20.3", features = ["extension-module"] }
-rocksdb = "0.22.0"
+#rocksdb = "0.22.0"
+rust-rocksdb = { version = "0.33.0", features= ["zstd"] }

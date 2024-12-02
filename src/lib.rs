@@ -1,43 +1,41 @@
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded};
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use std::fs;
-use pyo3::types::PyBytes;
 
-extern crate rocksdb;
-
+use rust_rocksdb as rocksdb;
 
 #[pyclass]
 #[derive(Clone)]
 pub struct RocksDB {
-    pub db: Arc<DBWithThreadMode<MultiThreaded>>
+    pub db: Arc<DBWithThreadMode<MultiThreaded>>,
 }
-    #[pymethods]
-    impl RocksDB {
+#[pymethods]
+impl RocksDB {
     #[new]
     fn new(path: &str) -> Self {
-// create directory and all parent directory
+        // create directory and all parent directory
         if !Path::new(path).exists() {
             match fs::create_dir_all(path) {
-                Ok(_) => {},
-                Err(_error) => panic!("Failed to create directory at {}.", path)
+                Ok(_) => {}
+                Err(_error) => panic!("Failed to create directory at {}.", path),
             };
         }
-// TODO: create options class
-// TODO: optimize options in python
-    let mut opts = rocksdb::Options::default();
-    opts.create_if_missing(true);
-    opts.increase_parallelism(24);
-    opts.set_compression_type(DBCompressionType::Snappy);
+        // TODO: create options class
+        // TODO: optimize options in python
+        let mut opts = rocksdb::Options::default();
+        opts.create_if_missing(true);
+        opts.increase_parallelism(24);
+        opts.set_compression_type(DBCompressionType::Zstd);
         let database = match DBWithThreadMode::open(&opts, path) {
             Ok(r) => r,
-            Err(e) => panic!("Unable to open RocksDB at {}, error: {}",path, e)
+            Err(e) => panic!("Unable to open RocksDB at {}, error: {}", path, e),
         };
         RocksDB {
-            db: Arc::new(database)
+            db: Arc::new(database),
         }
-
     }
 
     fn put(&self, header: String, sequence: String) {
@@ -48,12 +46,14 @@ pub struct RocksDB {
         let sequence = match self.db.get(header.as_bytes()) {
             Ok(Some(r)) => String::from_utf8(r).unwrap(),
             Ok(None) => return None,
-            Err(e) => panic!("Received database error when trying to retrieve sequence, error: {}", e)
+            Err(e) => panic!(
+                "Received database error when trying to retrieve sequence, error: {}",
+                e
+            ),
         };
 
         Some(sequence)
     }
-
 
     fn put_bytes(&self, key: String, object: &[u8]) {
         self.db.put(key.as_bytes(), object).unwrap();
@@ -64,7 +64,7 @@ pub struct RocksDB {
         // let py = gil.python();
         match self.db.get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
-            _ => panic!("Received database error when trying to retrieve sequence")
+            _ => panic!("Received database error when trying to retrieve sequence"),
         }
     }
 
@@ -81,7 +81,7 @@ pub struct RocksDB {
         }
         match self.db.write(batch) {
             Ok(_) => counter,
-            Err(_) => 0
+            Err(_) => 0,
         }
     }
 
@@ -91,8 +91,10 @@ pub struct RocksDB {
         let mut unpacked_results: Vec<String> = Vec::with_capacity(keys.capacity());
         for pack in packed_results.iter() {
             match pack {
-                Ok(Some(value)) => unpacked_results.push(String::from_utf8(value.to_vec()).unwrap()),
-                Ok(None) => unpacked_results.push( String::from("")),
+                Ok(Some(value)) => {
+                    unpacked_results.push(String::from_utf8(value.to_vec()).unwrap())
+                }
+                Ok(None) => unpacked_results.push(String::from("")),
                 Err(_) => unpacked_results.push(String::from("error")),
             }
         }
