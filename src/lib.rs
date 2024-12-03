@@ -14,6 +14,7 @@ pub struct RocksDB {
     pub db: Arc<DBWithThreadMode<MultiThreaded>>,
     pub wo: Arc<WriteOptions>,
 }
+
 #[pymethods]
 impl RocksDB {
     #[new]
@@ -25,8 +26,6 @@ impl RocksDB {
                 Err(_error) => panic!("Failed to create directory at {}.", path),
             };
         }
-        // TODO: create options class
-        // TODO: optimize options in python
         let mut opts = rocksdb::Options::default();
         opts.create_if_missing(true);
         opts.increase_parallelism(24);
@@ -39,12 +38,22 @@ impl RocksDB {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}", path, e),
         };
-        let mut wo = WriteOptions::new();
-        wo.disable_wal(true);
+        let wo = WriteOptions::new();
         RocksDB {
             db: Arc::new(database),
             wo: Arc::new(wo),
         }
+    }
+
+    fn disable_wal(&mut self) {
+        let mut write_option = WriteOptions::new();
+        write_option.disable_wal(true);
+        self.wo = Arc::new(write_option);
+    }
+    fn enable_wal(&mut self) {
+        let mut write_option = WriteOptions::new();
+        write_option.disable_wal(false);
+        self.wo = Arc::new(write_option);
     }
 
     fn put(&self, header: String, sequence: String) {
@@ -71,8 +80,6 @@ impl RocksDB {
     }
 
     fn get_bytes(&self, py: Python, key: String) -> PyObject {
-        // let gil = Python::acquire_gil();
-        // let py = gil.python();
         match self.db.get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
             Ok(None) => return py.None().into(),
@@ -113,8 +120,8 @@ impl RocksDB {
         return unpacked_results;
     }
 
-    fn flush_wal(&self) -> bool {
-        match self.db.flush_wal(true) {
+    fn flush(&self) -> bool {
+        match self.db.flush() {
             Ok(()) => true,
             Err(_) => false,
         }
