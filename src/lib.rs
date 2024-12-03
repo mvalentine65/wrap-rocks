@@ -1,16 +1,18 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded};
+use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded, WriteOptions};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
 use rust_rocksdb as rocksdb;
+//use rocksdb;
 
 #[pyclass]
 #[derive(Clone)]
 pub struct RocksDB {
     pub db: Arc<DBWithThreadMode<MultiThreaded>>,
+    pub wo: Arc<WriteOptions>,
 }
 #[pymethods]
 impl RocksDB {
@@ -37,13 +39,18 @@ impl RocksDB {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}", path, e),
         };
+        let mut wo = WriteOptions::new();
+        wo.disable_wal(true);
         RocksDB {
             db: Arc::new(database),
+            wo: Arc::new(wo),
         }
     }
 
     fn put(&self, header: String, sequence: String) {
-        self.db.put(header.as_bytes(), sequence.as_bytes()).unwrap();
+        self.db
+            .put_opt(header.as_bytes(), sequence.as_bytes(), &self.wo)
+            .unwrap();
     }
 
     fn get(&self, header: String) -> Option<String> {
@@ -60,7 +67,7 @@ impl RocksDB {
     }
 
     fn put_bytes(&self, key: String, object: &[u8]) {
-        self.db.put(key.as_bytes(), object).unwrap();
+        self.db.put_opt(key.as_bytes(), object, &self.wo).unwrap();
     }
 
     fn get_bytes(&self, py: Python, key: String) -> PyObject {
@@ -84,7 +91,7 @@ impl RocksDB {
             batch.put(pair[0].as_bytes(), pair[1].as_bytes());
             counter += 1
         }
-        match self.db.write(batch) {
+        match self.db.write_without_wal(batch) {
             Ok(_) => counter,
             Err(_) => 0,
         }
@@ -104,6 +111,13 @@ impl RocksDB {
             }
         }
         return unpacked_results;
+    }
+
+    fn flush_wal(&self) -> bool {
+        match self.db.flush_wal(true) {
+            Ok(()) => true,
+            Err(_) => false,
+        }
     }
 }
 
