@@ -68,6 +68,7 @@ impl RocksDB {
         // let py = gil.python();
         match self.db.get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
+            Ok(None) => return py.None().into(),
             _ => panic!("Received database error when trying to retrieve sequence"),
         }
     }
