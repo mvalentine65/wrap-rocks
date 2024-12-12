@@ -1,12 +1,12 @@
+use core::panic;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use rocksdb::{DBCompressionType, DBWithThreadMode, MultiThreaded, WriteOptions};
+use rust_rocksdb::{
+    self, DBCompressionType, DBWithThreadMode, MultiThreaded, WaitForCompactOptions, WriteOptions,
+};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-
-use rust_rocksdb as rocksdb;
-//use rocksdb;
 
 #[pyclass]
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl RocksDB {
                 Err(_error) => panic!("Failed to create directory at {}.", path),
             };
         }
-        let mut opts = rocksdb::Options::default();
+        let mut opts = rust_rocksdb::Options::default();
         opts.create_if_missing(true);
         opts.increase_parallelism(24);
         match compression {
@@ -92,7 +92,7 @@ impl RocksDB {
     }
 
     fn batch_put(&self, inserts: Vec<Vec<String>>) -> u64 {
-        let mut batch = rocksdb::WriteBatch::default();
+        let mut batch = rust_rocksdb::WriteBatch::default();
         let mut counter: u64 = 0;
         for pair in inserts.iter() {
             batch.put(pair[0].as_bytes(), pair[1].as_bytes());
@@ -128,9 +128,20 @@ impl RocksDB {
     }
 }
 
+#[pyfunction]
+pub fn close_db(rock: RocksDB) {
+    match rock.db.wait_for_compact(&WaitForCompactOptions::default()) {
+        Ok(()) => drop(rock),
+        Err(_) => panic!(
+            "Compaction Error in rocksdb {}",
+            rock.db.path().to_str().unwrap()
+        ),
+    }
+}
 /// A Python module that wraps rocksdb's rust crate.
 #[pymodule]
 fn wrap_rocks(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(close_db, m)?)?;
     m.add_class::<RocksDB>()?;
     Ok(())
 }
