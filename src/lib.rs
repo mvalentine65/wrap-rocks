@@ -122,26 +122,19 @@ impl RocksDB {
 
     fn flush(&self) -> bool {
         match self.db.flush() {
+            Ok(()) => {}
+            Err(_) => return false,
+        }
+        match self.db.wait_for_compact(&WaitForCompactOptions::default()) {
             Ok(()) => true,
             Err(_) => false,
         }
     }
 }
 
-#[pyfunction]
-pub fn close_db(rock: RocksDB) {
-    match rock.db.wait_for_compact(&WaitForCompactOptions::default()) {
-        Ok(()) => drop(rock),
-        Err(_) => panic!(
-            "Compaction Error in rocksdb {}",
-            rock.db.path().to_str().unwrap()
-        ),
-    }
-}
 /// A Python module that wraps rocksdb's rust crate.
 #[pymodule]
 fn wrap_rocks(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(close_db, m)?)?;
     m.add_class::<RocksDB>()?;
     Ok(())
 }
