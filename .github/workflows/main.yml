@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     container: saferq/wrap-rocks:latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
         #- name: Install stable rust
         #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
       - name: build-312
@@ -30,19 +30,63 @@ jobs:
             #run: |
             #for wheel in target/wheels/*; do
             #python3.12 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
+            #donebuild-312:
+    name: Build wheel-313
+    runs-on: ubuntu-latest
+    container: saferq/wrap-rocks:latest
+    steps:
+      - uses: actions/checkout@v2
+        #- name: Install stable rust
+        #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      - name: build-313
+        run: |
+          source /root/.cargo/env
+          python3.13 -m maturin build -m Cargo.toml -i python3.13 --release
+      - name: auditwheel-313
+        run: |
+          for wheel in target/wheels/*.whl; do
+            auditwheel repair "${wheel}"
+            done
+            #- name: pypi upload
+            #run: |
+            #for wheel in target/wheels/*; do
+            #python3.13 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
             #done
-  build-38-311:
+  build-310:
+    name: Build wheel-310
+    runs-on: ubuntu-latest
+    container: saferq/wrap-rocks:latest
+    steps:
+      - uses: actions/checkout@v2
+        #- name: Install stable rust
+        #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      - name: build-310
+        run: |
+          source /root/.cargo/env
+          python3.10 -m maturin build -m Cargo.toml -i python3.10 --release
+      - name: auditwheel-310
+        run: |
+          for wheel in target/wheels/*.whl; do
+            auditwheel repair "${wheel}"
+            done
+            #- name: pypi upload
+            #run: |
+            #for wheel in target/wheels/*; do
+            #python3.10 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
+            #done
+
+  build-38-39:
     name: Build wheels 38-311
     runs-on: ubuntu-latest
     container: saferq/wrap-rocks:latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Install stable rust
         run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
       - name: build
         run: |
           source /root/.cargo/env
-          for PYBIN in /opt/python/cp3[891]*/bin; do
+          for PYBIN in /opt/python/cp3[89]*/bin; do
             "${PYBIN}/maturin" build -m Cargo.toml -i "${PYBIN}/python" --release
           done
           #- name: auditwheel
