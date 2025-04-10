@@ -18,13 +18,10 @@ jobs:
     container: saferq/wrap-rocks:latest
     steps:
       - uses: actions/checkout@v2
-        #- name: Install stable rust
-        #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-      
       - name: build-wheels
         run: |
           source /usr/local/cargo/env
-          python${{ matrix.python-version}} -m maturin build -m Cargo.toml -i python${{matrix.python-version}} --release
+          python${{ matrix.python-version }} -m maturin build -m Cargo.toml -i python${{ matrix.python-version }} --release
       
       - name: auditwheels
         run: |
@@ -36,93 +33,4 @@ jobs:
             #for wheel in target/wheels/*; do
             #python3.12 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
             #donebuild-312:
-  # build-313:
-  #   name: Build wheel-313
-  #   runs-on: ubuntu-latest
-  #   container: saferq/wrap-rocks:latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       #- name: Install stable rust
-  #       #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-  #     - name: build-313
-  #       run: |
-  #         source /$HOME/.cargo/env
-  #         python3.13 -m maturin build -m Cargo.toml -i python3.13 --release
-  #     - name: auditwheel-313
-  #       run: |
-  #         for wheel in target/wheels/*.whl; do
-  #           auditwheel repair "${wheel}"
-  #           done
-  #           #- name: pypi upload
-  #           #run: |
-  #           #for wheel in target/wheels/*; do
-  #           #python3.13 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
-  #           #done
-  # build-310:
-  #   name: Build wheel-310
-  #   runs-on: ubuntu-latest
-  #   container: saferq/wrap-rocks:latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       #- name: Install stable rust
-  #       #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-  #     - name: build-310
-  #       run: |
-  #         source /$HOME/.cargo/env
-  #         python3.10 -m maturin build -m Cargo.toml -i python3.10 --release
-  #     - name: auditwheel-310
-  #       run: |
-  #         for wheel in target/wheels/*.whl; do
-  #           auditwheel repair "${wheel}"
-  #           done
-  #           #- name: pypi upload
-  #           #run: |
-  #           #for wheel in target/wheels/*; do
-  #           #python3.10 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
-  #           #done
-
-  # build-38-39:
-  #   name: Build wheels 38-311
-  #   runs-on: ubuntu-latest
-  #   container: saferq/wrap-rocks:latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: Install stable rust
-  #       run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-  #     - name: Set up Rust
-  #       uses: actions/setup-rust@v1
-  #       with:
-  #         rust-version: stable
-  #     - name: build
-  #       run: |
-  #         #source /$HOME/.cargo/env
-  #         for PYBIN in /opt/python/cp3[89]*/bin; do
-  #           "${PYBIN}/maturin" build -m Cargo.toml -i "${PYBIN}/python" --release
-  #         done
-  #         #- name: auditwheel
-  #         # run: |
-  #         #for wheel in target/wheels/*.whl; do
-  #         #    auditwheel repair "${wheel}"
-  #         #done
-  #         # - name: pypi upload
-  #         #run: |
-  #         #for wheel in target/wheels/*; do
-  #         #python3.10 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
-  #         #done
-
-  #       # - name: Build Python3.8
-  #     #   run: |
-  #     #       python3.8 -m maturin build -m Cargo.toml -i python3.8 --release
-  #     #       done
-  #     # - name: Build Python3.9
-  #     #   run: |
-  #     #       python3.9 -m maturin build -m Cargo.toml  -i python3.9 --release
-  #     #       done
-  #     # - name: Build Python3.10
-  #     #   run: |
-  #     #       python3.10 -m maturin build -m Cargo.toml  -i python3.10 --release
-  #     #       done
-  #     # - name: Build Python3.11
-  #     #   run: |
-  #     #       python3.11 -m maturin build -m Cargo.toml  -i python3.11 --release
-  #     #       done
+  
