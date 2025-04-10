@@ -27,10 +27,6 @@ jobs:
         run: |
           for wheel in target/wheels/*.whl; do
             auditwheel repair "${wheel}"
-            done
-            - name: pypi upload
-            run: |
-            for wheel in target/wheels/*; do
             python3.12 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
             done
   
