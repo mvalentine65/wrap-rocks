@@ -69,3 +69,13 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+# debug build targets
+target/
+
+# debug db
+rocksdb/
+
+# misc test files
+old*
+test*
