@@ -9,19 +9,24 @@ on:
   pull_request:
 
 jobs:
-  build-312:
-    name: Build wheel-312
+  build:
+    name: Build wheels
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12, 3.13]
     container: saferq/wrap-rocks:latest
     steps:
       - uses: actions/checkout@v2
         #- name: Install stable rust
         #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-      - name: build-312
+      
+      - name: build-wheels
         run: |
-          source /root/.cargo/env
-          python3.12 -m maturin build -m Cargo.toml -i python3.12 --release
-      - name: auditwheel-312
+          source /$HOME/.cargo/env
+          python${{ matrix.python-version}} -m maturin build -m Cargo.toml -i python${{matrix.python-version}} --release
+      
+      - name: auditwheels
         run: |
           for wheel in target/wheels/*.whl; do
             auditwheel repair "${wheel}"
@@ -41,7 +46,7 @@ jobs:
         #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
       - name: build-313
         run: |
-          source /root/.cargo/env
+          source /$HOME/.cargo/env
           python3.13 -m maturin build -m Cargo.toml -i python3.13 --release
       - name: auditwheel-313
         run: |
@@ -63,7 +68,7 @@ jobs:
         #run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
       - name: build-310
         run: |
-          source /root/.cargo/env
+          source /$HOME/.cargo/env
           python3.10 -m maturin build -m Cargo.toml -i python3.10 --release
       - name: auditwheel-310
         run: |
@@ -84,9 +89,13 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install stable rust
         run: curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
       - name: build
         run: |
-          source /root/.cargo/env
+          #source /$HOME/.cargo/env
           for PYBIN in /opt/python/cp3[89]*/bin; do
             "${PYBIN}/maturin" build -m Cargo.toml -i "${PYBIN}/python" --release
           done
