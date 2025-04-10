@@ -31,6 +31,7 @@ jobs:
             #for wheel in target/wheels/*; do
             #python3.12 -m maturin upload ${wheel} -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
             #donebuild-312:
+  build-313:
     name: Build wheel-313
     runs-on: ubuntu-latest
     container: saferq/wrap-rocks:latest

@@ -134,7 +134,7 @@ impl RocksDB {
 
 /// A Python module that wraps rocksdb's rust crate.
 #[pymodule]
-fn wrap_rocks(_py: Python, m: &PyModule) -> PyResult<()> {
+fn wrap_rocks(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RocksDB>()?;
     Ok(())
 }
