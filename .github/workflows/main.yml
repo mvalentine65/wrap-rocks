@@ -23,7 +23,7 @@ jobs:
       
       - name: build-wheels
         run: |
-          source /$HOME/.cargo/env
+          source /usr/local/cargo/env
           python${{ matrix.python-version}} -m maturin build -m Cargo.toml -i python${{matrix.python-version}} --release
       
       - name: auditwheels
