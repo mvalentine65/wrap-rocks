@@ -38,8 +38,8 @@ sudo docker run --rm -v $(pwd):/io wrap-rocks python3.13 -m maturin -i python3.1
 
 Option 2: Use the prebuilt image
 ```bash
-sudo docker pull saferq/wrap-rocks
-sudo docker run --rm -v $(pwd):/io saferq/wrap-rocks python3.13 -m maturin -i python3.13 build --release
+sudo docker pull saferq/wrap-rocks:local
+sudo docker run --rm -v $(pwd):/io saferq/wrap-rocks:local python3.13 -m maturin -i python3.13 build --release
 ```
 
 ---
