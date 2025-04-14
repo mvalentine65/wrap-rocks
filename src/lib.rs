@@ -16,12 +16,14 @@ pub struct RocksDB {
 }
 
 #[pymethods]
+
 impl RocksDB {
     #[new]
-    fn new(path: &str, compression: Option<&str>) -> Self {
+    #[pyo3(signature = (path, compression = None))]
+    fn new(path: String, compression: Option<String>) -> Self {
         // create directory and all parent directory
-        if !Path::new(path).exists() {
-            match fs::create_dir_all(path) {
+        if !Path::new(&path).exists() {
+            match fs::create_dir_all(&path) {
                 Ok(_) => {}
                 Err(_error) => panic!("Failed to create directory at {}.", path),
             };
@@ -30,13 +32,15 @@ impl RocksDB {
         opts.create_if_missing(true);
         opts.increase_parallelism(24);
         match compression {
-            Some("snappy") => opts.set_compression_type(DBCompressionType::Snappy),
+            Some(val) if val == "snappy".to_owned() => {
+                opts.set_compression_type(DBCompressionType::Snappy)
+            }
             _ => opts.set_compression_type(DBCompressionType::Zstd),
         }
         opts.set_compression_type(DBCompressionType::Zstd);
-        let database = match DBWithThreadMode::open(&opts, path) {
+        let database = match DBWithThreadMode::open(&opts, &path) {
             Ok(r) => r,
-            Err(e) => panic!("Unable to open RocksDB at {}, error: {}", path, e),
+            Err(e) => panic!("Unable to open RocksDB at {}, error: {}", &path, e),
         };
         let wo = WriteOptions::new();
         RocksDB {
