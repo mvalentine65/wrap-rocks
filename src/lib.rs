@@ -13,14 +13,16 @@ use std::sync::Arc;
 pub struct RocksDB {
     pub db: Arc<DBWithThreadMode<MultiThreaded>>,
     pub wo: Arc<WriteOptions>,
+    pub read_only: bool,
+    
 }
 
 #[pymethods]
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None))]
-    fn new(path: String, compression: Option<String>) -> Self {
+    #[pyo3(signature = (path, compression = None, read_only = None))]
+    fn new(path: String, compression: Option<String>, read_only: Option<bool>) -> Self {
         // create directory and all parent directory
         if !Path::new(&path).exists() {
             match fs::create_dir_all(&path) {
@@ -38,7 +40,26 @@ impl RocksDB {
             _ => opts.set_compression_type(DBCompressionType::Zstd),
         }
         opts.set_compression_type(DBCompressionType::Zstd);
-        let database = match DBWithThreadMode::open(&opts, &path) {
+        let read_only = read_only.unwrap_or(false);
+        let unopened_db = || {
+            if read_only {
+                DBWithThreadMode::open_for_read_only(&opts, &path, false)
+            } else {
+                DBWithThreadMode::open(&opts, &path)
+            }
+        };
+        //let database = unopened_db()
+            //.unwrap_or_else(|e| {
+                //panic!(
+                    //"Unable to open RocksDB{} at {}, error: {}",
+                    //if read_only { " read-only" } else { "" },
+                    //&path,
+                    //e
+                //)
+            //});
+
+        //let database = match DBWithThreadMode::open(&opts, &path) {
+        let database = match unopened_db() {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}", &path, e),
         };
@@ -46,6 +67,7 @@ impl RocksDB {
         RocksDB {
             db: Arc::new(database),
             wo: Arc::new(wo),
+            read_only: read_only,
         }
     }
 
@@ -61,6 +83,9 @@ impl RocksDB {
     }
 
     fn put(&self, header: String, sequence: String) {
+        if self.read_only {
+            return;
+        }
         self.db
             .put_opt(header.as_bytes(), sequence.as_bytes(), &self.wo)
             .unwrap();
@@ -80,6 +105,9 @@ impl RocksDB {
     }
 
     fn put_bytes(&self, key: String, object: &[u8]) {
+        if self.read_only {
+            return;
+        }
         self.db.put_opt(key.as_bytes(), object, &self.wo).unwrap();
     }
 
@@ -96,6 +124,9 @@ impl RocksDB {
     }
 
     fn batch_put(&self, inserts: Vec<Vec<String>>) -> u64 {
+        if self.read_only {
+            return 0;
+        }
         let mut batch = rust_rocksdb::WriteBatch::default();
         let mut counter: u64 = 0;
         for pair in inserts.iter() {
