@@ -21,8 +21,8 @@ pub struct RocksDB {
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None, read_only = None))]
-    fn new(path: String, compression: Option<String>, read_only: Option<bool>) -> Self {
+    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count= None))]
+    fn new(path: String, compression: Option<String>, read_only: Option<bool>, max_log_count: Option<usize>) -> Self {
         // create directory and all parent directory
         if !Path::new(&path).exists() {
             match fs::create_dir_all(&path) {
@@ -40,6 +40,7 @@ impl RocksDB {
             _ => opts.set_compression_type(DBCompressionType::Zstd),
         }
         opts.set_compression_type(DBCompressionType::Zstd);
+        opts.set_keep_log_file_num(max_log_count.unwrap_or(50));
         let read_only = read_only.unwrap_or(false);
         let unopened_db = || {
             if read_only {
