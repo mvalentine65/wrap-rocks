@@ -1,9 +1,10 @@
 use core::panic;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyDict};
 use rust_rocksdb::{
     self, DBCompressionType, DBWithThreadMode, MultiThreaded, WaitForCompactOptions, WriteOptions,
 };
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -124,15 +125,15 @@ impl RocksDB {
         self.db.delete(header.as_bytes()).is_ok()
     }
 
-    fn batch_put(&self, inserts: Vec<Vec<String>>) -> u64 {
+    fn batch_put(&self, inserts: HashMap<String, String>) -> u64 {
         if self.read_only {
             return 0;
         }
         let mut batch = rust_rocksdb::WriteBatch::default();
         let mut counter: u64 = 0;
-        for pair in inserts.iter() {
-            batch.put(pair[0].as_bytes(), pair[1].as_bytes());
-            counter += 1
+        for (key, value) in inserts.iter() {
+            batch.put(key.as_bytes(), value.as_bytes());
+            counter += 1;
         }
         match self.db.write_without_wal(batch) {
             Ok(_) => counter,
@@ -140,20 +141,57 @@ impl RocksDB {
         }
     }
 
-    fn batch_get(&self, keys: Vec<String>) -> Vec<String> {
+    fn batch_put_bytes(&self, inserts: HashMap<Vec<u8>, Vec<u8>>) -> u64 {
+        if self.read_only {
+            return 0;
+        }
+        let mut batch = rust_rocksdb::WriteBatch::default();
+        let mut counter: u64 = 0;
+        for (key, value) in inserts.iter() {
+            batch.put(key, value);
+            counter += 1;
+        }
+        match self.db.write_without_wal(batch) {
+            Ok(_) => counter,
+            Err(_) => 0,
+        }
+    }
+
+    fn batch_get<'py>(&self, py: Python<'py>, keys: Vec<String>) -> Bound<'py, PyDict> {
         let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_bytes()).collect();
-        let packed_results = self.db.multi_get(byte_keys.iter());
-        let mut unpacked_results: Vec<String> = Vec::with_capacity(keys.capacity());
-        for pack in packed_results.iter() {
+        let packed_results = self.db.multi_get(&byte_keys);
+        let dict = PyDict::new(py);
+        for (key, pack) in keys.iter().zip(packed_results.iter()) {
             match pack {
                 Ok(Some(value)) => {
-                    unpacked_results.push(String::from_utf8(value.to_vec()).unwrap())
+                    dict.set_item(key, String::from_utf8(value.to_vec()).unwrap())
+                        .unwrap();
                 }
-                Ok(None) => unpacked_results.push(String::from("")),
-                Err(_) => unpacked_results.push(String::from("error")),
+                Ok(None) => {}
+                Err(_) => {}
             }
         }
-        return unpacked_results;
+        dict
+    }
+
+    fn batch_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Bound<'py, PyDict> {
+        let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
+        let packed_results = self.db.multi_get(&byte_keys);
+        let dict = PyDict::new(py);
+        for (key, pack) in keys.iter().zip(packed_results.iter()) {
+            match pack {
+                Ok(Some(value)) => {
+                    dict.set_item(
+                        PyBytes::new(py, key),
+                        PyBytes::new(py, value.as_slice()),
+                    )
+                    .unwrap();
+                }
+                Ok(None) => {}
+                Err(_) => {}
+            }
+        }
+        dict
     }
 
     fn flush(&self) -> bool {
