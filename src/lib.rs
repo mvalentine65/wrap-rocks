@@ -41,7 +41,7 @@ impl RocksDB {
             _ => opts.set_compression_type(DBCompressionType::Zstd),
         }
         opts.set_compression_type(DBCompressionType::Zstd);
-        opts.set_keep_log_file_num(max_log_count.unwrap_or(50));
+        opts.set_keep_log_file_num(max_log_count.unwrap_or(1));
         let read_only = read_only.unwrap_or(false);
         let unopened_db = || {
             if read_only {
