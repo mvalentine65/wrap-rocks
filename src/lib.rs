@@ -10,12 +10,22 @@ use std::path::Path;
 use std::sync::Arc;
 
 #[pyclass]
-#[derive(Clone)]
 pub struct RocksDB {
-    pub db: Arc<DBWithThreadMode<MultiThreaded>>,
+    // `None` after `close()` has released the handle.  Not `Clone`: a single
+    // owner guarantees `close()` actually drops the last reference and frees
+    // the lock, rather than leaving a sibling clone holding the DB open.
+    pub db: Option<Arc<DBWithThreadMode<MultiThreaded>>>,
     pub wo: Arc<WriteOptions>,
     pub read_only: bool,
-    
+}
+
+// Rust-only helpers (not exposed to Python).
+impl RocksDB {
+    fn handle(&self) -> &DBWithThreadMode<MultiThreaded> {
+        self.db
+            .as_ref()
+            .expect("RocksDB handle used after close()")
+    }
 }
 
 #[pymethods]
@@ -50,27 +60,28 @@ impl RocksDB {
                 DBWithThreadMode::open(&opts, &path)
             }
         };
-        //let database = unopened_db()
-            //.unwrap_or_else(|e| {
-                //panic!(
-                    //"Unable to open RocksDB{} at {}, error: {}",
-                    //if read_only { " read-only" } else { "" },
-                    //&path,
-                    //e
-                //)
-            //});
 
-        //let database = match DBWithThreadMode::open(&opts, &path) {
         let database = match unopened_db() {
             Ok(r) => r,
             Err(e) => panic!("Unable to open RocksDB at {}, error: {}", &path, e),
         };
         let wo = WriteOptions::new();
         RocksDB {
-            db: Arc::new(database),
+            db: Some(Arc::new(database)),
             wo: Arc::new(wo),
             read_only: read_only,
         }
+    }
+
+    /// Release the underlying RocksDB handle.  Once closed, the database is
+    /// flushed/closed and any further operation on this object will raise.
+    fn close(&mut self) {
+        if let Some(db) = self.db.as_ref() {
+            // Best-effort flush before releasing the handle; ignore errors
+            // (a read-only DB has nothing to flush).
+            let _ = db.flush();
+        }
+        self.db = None;
     }
 
     fn disable_wal(&mut self) {
@@ -88,13 +99,13 @@ impl RocksDB {
         if self.read_only {
             return;
         }
-        self.db
+        self.handle()
             .put_opt(header.as_bytes(), sequence.as_bytes(), &self.wo)
             .unwrap();
     }
 
     fn get(&self, header: String) -> Option<String> {
-        let sequence = match self.db.get(header.as_bytes()) {
+        let sequence = match self.handle().get(header.as_bytes()) {
             Ok(Some(r)) => String::from_utf8(r).unwrap(),
             Ok(None) => return None,
             Err(e) => panic!(
@@ -110,11 +121,11 @@ impl RocksDB {
         if self.read_only {
             return;
         }
-        self.db.put_opt(key.as_bytes(), object, &self.wo).unwrap();
+        self.handle().put_opt(key.as_bytes(), object, &self.wo).unwrap();
     }
 
     fn get_bytes(&self, py: Python, key: String) -> PyObject {
-        match self.db.get(key.as_bytes()) {
+        match self.handle().get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
             Ok(None) => return py.None().into(),
             _ => panic!("Received database error when trying to retrieve sequence"),
@@ -122,7 +133,7 @@ impl RocksDB {
     }
 
     fn delete(&self, header: String) -> bool {
-        self.db.delete(header.as_bytes()).is_ok()
+        self.handle().delete(header.as_bytes()).is_ok()
     }
 
     fn batch_put(&self, inserts: HashMap<String, String>) -> u64 {
@@ -135,7 +146,7 @@ impl RocksDB {
             batch.put(key.as_bytes(), value.as_bytes());
             counter += 1;
         }
-        match self.db.write_without_wal(batch) {
+        match self.handle().write_without_wal(batch) {
             Ok(_) => counter,
             Err(_) => 0,
         }
@@ -151,7 +162,7 @@ impl RocksDB {
             batch.put(key, value);
             counter += 1;
         }
-        match self.db.write_without_wal(batch) {
+        match self.handle().write_without_wal(batch) {
             Ok(_) => counter,
             Err(_) => 0,
         }
@@ -159,7 +170,7 @@ impl RocksDB {
 
     fn batch_get<'py>(&self, py: Python<'py>, keys: Vec<String>) -> Bound<'py, PyDict> {
         let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_bytes()).collect();
-        let packed_results = self.db.multi_get(&byte_keys);
+        let packed_results = self.handle().multi_get(&byte_keys);
         let dict = PyDict::new(py);
         for (key, pack) in keys.iter().zip(packed_results.iter()) {
             match pack {
@@ -176,7 +187,7 @@ impl RocksDB {
 
     fn batch_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Bound<'py, PyDict> {
         let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
-        let packed_results = self.db.multi_get(&byte_keys);
+        let packed_results = self.handle().multi_get(&byte_keys);
         let dict = PyDict::new(py);
         for (key, pack) in keys.iter().zip(packed_results.iter()) {
             match pack {
@@ -195,11 +206,11 @@ impl RocksDB {
     }
 
     fn flush(&self) -> bool {
-        match self.db.flush() {
+        match self.handle().flush() {
             Ok(()) => {}
             Err(_) => return false,
         }
-        match self.db.wait_for_compact(&WaitForCompactOptions::default()) {
+        match self.handle().wait_for_compact(&WaitForCompactOptions::default()) {
             Ok(()) => true,
             Err(_) => false,
         }
