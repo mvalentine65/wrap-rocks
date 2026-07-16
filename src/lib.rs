@@ -205,6 +205,31 @@ impl RocksDB {
         dict
     }
 
+    /// Batched point-get returning an ordered list aligned to `keys`: each
+    /// element is the value's bytes, or `None` when the key is absent.
+    ///
+    /// Unlike `batch_get_bytes` (which returns a dict and drops misses), this
+    /// preserves input order and position, so callers can zip results straight
+    /// back to their keys -- e.g. assembling a scaffold window from its
+    /// covering `pseq:{sid}:{blk}` chunks in one round trip. Mirrors the
+    /// existing `batch_get_bytes` pattern (single `multi_get`).
+    fn multi_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Vec<PyObject> {
+        let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
+        let packed_results = self.handle().multi_get(&byte_keys);
+        let mut out: Vec<PyObject> = Vec::with_capacity(packed_results.len());
+        for pack in packed_results.iter() {
+            match pack {
+                Ok(Some(value)) => out.push(PyBytes::new(py, value.as_slice()).into()),
+                Ok(None) => out.push(py.None()),
+                // A real read error (corrupt SST / checksum) is NOT a missing
+                // key -- surface it like get_bytes rather than masking it as
+                // None (which the caller would report as "chunk missing").
+                Err(_) => panic!("Received database error when trying to retrieve sequence"),
+            }
+        }
+        out
+    }
+
     fn flush(&self) -> bool {
         match self.handle().flush() {
             Ok(()) => {}
