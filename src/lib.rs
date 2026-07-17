@@ -32,8 +32,15 @@ impl RocksDB {
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count= None))]
-    fn new(path: String, compression: Option<String>, read_only: Option<bool>, max_log_count: Option<usize>) -> Self {
+    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count = None, write_buffer_mb = None, point_lookup_mb = None))]
+    fn new(
+        path: String,
+        compression: Option<String>,
+        read_only: Option<bool>,
+        max_log_count: Option<usize>,
+        write_buffer_mb: Option<usize>,
+        point_lookup_mb: Option<u64>,
+    ) -> Self {
         // create directory and all parent directory
         if !Path::new(&path).exists() {
             match fs::create_dir_all(&path) {
@@ -44,13 +51,31 @@ impl RocksDB {
         let mut opts = rust_rocksdb::Options::default();
         opts.create_if_missing(true);
         opts.increase_parallelism(24);
-        match compression {
-            Some(val) if val == "snappy".to_owned() => {
-                opts.set_compression_type(DBCompressionType::Snappy)
-            }
-            _ => opts.set_compression_type(DBCompressionType::Zstd),
+        // Compression codec. Previously the `compression` argument was dead: the
+        // match below was immediately overridden by an unconditional
+        // set_compression_type(Zstd), so "snappy" silently did nothing.
+        // The codec is recorded per SST block, so changing it only affects newly
+        // written data -- existing DBs stay readable.
+        let codec = match compression.as_deref() {
+            Some("snappy") => DBCompressionType::Snappy,
+            Some("lz4") => DBCompressionType::Lz4,
+            Some("none") => DBCompressionType::None,
+            Some("zstd") | None => DBCompressionType::Zstd,
+            Some(other) => panic!(
+                "unknown compression {:?} (expected zstd, lz4, snappy or none)",
+                other
+            ),
+        };
+        opts.set_compression_type(codec);
+        // Bigger memtable => fewer flush/compaction cycles during bulk writes.
+        if let Some(mb) = write_buffer_mb {
+            opts.set_write_buffer_size(mb * 1024 * 1024);
         }
-        opts.set_compression_type(DBCompressionType::Zstd);
+        // Bloom filters + point-lookup-tuned table options; this workload is
+        // almost entirely point gets (gethits:{gene}, pseq:{sid}:{blk}).
+        if let Some(mb) = point_lookup_mb {
+            opts.optimize_for_point_lookup(mb);
+        }
         opts.set_keep_log_file_num(max_log_count.unwrap_or(1));
         let read_only = read_only.unwrap_or(false);
         let unopened_db = || {
