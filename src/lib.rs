@@ -32,7 +32,7 @@ impl RocksDB {
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count = None, write_buffer_mb = None, point_lookup_mb = None))]
+    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count = None, write_buffer_mb = None, point_lookup_mb = None, bulk_load = None))]
     fn new(
         path: String,
         compression: Option<String>,
@@ -40,6 +40,7 @@ impl RocksDB {
         max_log_count: Option<usize>,
         write_buffer_mb: Option<usize>,
         point_lookup_mb: Option<u64>,
+        bulk_load: Option<bool>,
     ) -> Self {
         // create directory and all parent directory
         if !Path::new(&path).exists() {
@@ -75,6 +76,20 @@ impl RocksDB {
         // almost entirely point gets (gethits:{gene}, pseq:{sid}:{blk}).
         if let Some(mb) = point_lookup_mb {
             opts.optimize_for_point_lookup(mb);
+        }
+        // Bulk-load mode for write-once, rebuilt-each-run DBs (e.g. prepare's
+        // nt store). Auto-compaction during the load reads freshly-flushed L0
+        // SSTs back and re-compresses them L0->L1 (pure write amplification off
+        // the critical path); disabling it leaves the data as L0 SSTs, which is
+        // fine for a DB that is written once and then read a bounded number of
+        // times. With compaction off, the default L0 slowdown/stop write
+        // triggers (20/36) would throttle then freeze a large load, so raise
+        // them out of the way. Durability is unchanged: close() still flushes
+        // the memtable to SST.
+        if bulk_load.unwrap_or(false) {
+            opts.set_disable_auto_compactions(true);
+            opts.set_level_zero_slowdown_writes_trigger(1 << 30);
+            opts.set_level_zero_stop_writes_trigger(1 << 30);
         }
         opts.set_keep_log_file_num(max_log_count.unwrap_or(1));
         let read_only = read_only.unwrap_or(false);
