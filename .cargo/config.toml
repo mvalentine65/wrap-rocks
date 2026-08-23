@@ -1,0 +1,5 @@
+# rust-version aware resolution. Cargo only enables this by default on edition
+# 2024; without it a dependency that raises its MSRV silently resolves and then
+# fails to compile on an older toolchain.
+[resolver]
+incompatible-rust-versions = "fallback"

@@ -1,7 +1,9 @@
 [package]
 name = "wrap_rocks"
-version = "0.6.10"
+version = "0.7.0"
 edition = "2021"
+# Oldest toolchain we build on; enforced by .cargo/config.toml.
+rust-version = "1.91"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "wrap_rocks"
@@ -9,5 +11,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ffi = "0.1.1"
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
-rust-rocksdb = { version = "0.33.0", features= ["zstd", "multi-threaded-cf"] }
+pyo3 = { version = "0.29", features = ["extension-module"] }
+rust-rocksdb = { version = "0.52.0", features= ["zstd", "multi-threaded-cf"] }

@@ -164,7 +164,7 @@ impl RocksDB {
         self.handle().put_opt(key.as_bytes(), object, &self.wo).unwrap();
     }
 
-    fn get_bytes(&self, py: Python, key: String) -> PyObject {
+    fn get_bytes(&self, py: Python, key: String) -> Py<PyAny> {
         match self.handle().get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
             Ok(None) => return py.None().into(),
@@ -186,7 +186,7 @@ impl RocksDB {
             batch.put(key.as_bytes(), value.as_bytes());
             counter += 1;
         }
-        match self.handle().write_without_wal(batch) {
+        match self.handle().write_without_wal(&batch) {
             Ok(_) => counter,
             Err(_) => 0,
         }
@@ -202,7 +202,7 @@ impl RocksDB {
             batch.put(key, value);
             counter += 1;
         }
-        match self.handle().write_without_wal(batch) {
+        match self.handle().write_without_wal(&batch) {
             Ok(_) => counter,
             Err(_) => 0,
         }
@@ -253,10 +253,10 @@ impl RocksDB {
     /// back to their keys -- e.g. assembling a scaffold window from its
     /// covering `pseq:{sid}:{blk}` chunks in one round trip. Mirrors the
     /// existing `batch_get_bytes` pattern (single `multi_get`).
-    fn multi_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Vec<PyObject> {
+    fn multi_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Vec<Py<PyAny>> {
         let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
         let packed_results = self.handle().multi_get(&byte_keys);
-        let mut out: Vec<PyObject> = Vec::with_capacity(packed_results.len());
+        let mut out: Vec<Py<PyAny>> = Vec::with_capacity(packed_results.len());
         for pack in packed_results.iter() {
             match pack {
                 Ok(Some(value)) => out.push(PyBytes::new(py, value.as_slice()).into()),
