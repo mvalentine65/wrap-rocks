@@ -7,10 +7,10 @@ Built with [PyO3](https://pyo3.rs/), powered by [RocksDB](https://github.com/fac
 
 - Fast key-value store backed by RocksDB.
 - Pythonic API with support for both strings and bytes.
-- Optional compression: `zstd` (default) or `snappy`.
-- Toggleable WAL (Write-Ahead Log) behavior.
-- Lightweight, no-dependency interface for read/write/delete operations.
-- Wheels for Python 3.8–3.13 (manylinux-compatible).
+- Optional compression: `zstd` (default), `lz4`, `snappy`, or `none`.
+- WAL (Write-Ahead Log) can be disabled for rebuild-from-scratch databases.
+- Lightweight, no-dependency interface for read/write operations.
+- Wheels for Python 3.10–3.14 (manylinux-compatible).
 
 ---
 
@@ -28,7 +28,7 @@ maturin develop
 ## 🐳 Building with Docker
 
 You can build wheels locally using the provided Dockerfile, or use the prebuilt image on Docker Hub.
-The container should support every python version from 3.8 to 3.13.
+The container should support every python version from 3.10 to 3.14.
 
 Option 1: Build your own image
 ```bash
@@ -60,24 +60,24 @@ print(db.get("seq1"))  # "AGCT"
 db.put_bytes("meta", b"\x00\x01")
 print(db.get_bytes("meta"))  # b"\x00\x01"
 
-# Remove a key
-db.delete("seq1")
-
-# Flush and compact
-db.flush()
+# Release the handle (flushes the memtable to SST)
+db.close()
 ```
 
 ---
 
 ## ⚖️ API Overview
 
-### `RocksDB(path: str, compression: Optional[str] = None)`
+### `RocksDB(path, compression=None, read_only=None, bulk_load=None)`
 
 - Initializes a RocksDB database at the given path.
 - Creates directories automatically if missing.
-- Compression options:
-  - `"snappy"`: fast, lightweight
-  - Default is `"zstd"`: higher compression ratio
+- `compression`: `"zstd"` (default, best ratio), `"lz4"`, `"snappy"` (fast,
+  lightweight), or `"none"`. Recorded per SST block, so changing it affects
+  only newly written data -- existing databases stay readable.
+- `read_only`: open without taking the write lock. Writes become no-ops.
+- `bulk_load`: disable auto-compaction for write-once databases that are
+  rebuilt every run. Avoids re-compressing freshly flushed L0 SSTs.
 
 ---
 
@@ -101,25 +101,22 @@ Retrieves binary data as `bytes`. Returns `None` if missing.
 
 ---
 
-### `delete(key: str) -> bool`
+### `close()`
 
-Removes a key (and its value). Returns `True` on success.
-
----
-
-### `flush() -> bool`
-
-Flushes in-memory writes to disk and triggers compaction.
-
-Use this before backups or to minimize storage bloat after bulk writes.
+Flushes the memtable to SST and releases the underlying handle, freeing the
+database lock. Any further operation on the object raises.
 
 ---
 
-### `enable_wal()` and `disable_wal()`
+### `disable_wal()`
 
-Toggles Write-Ahead Logging. By default, WAL is **enabled** for durability.
+Turns off Write-Ahead Logging for subsequent writes. WAL is **enabled** by
+default for durability.
 
-> Disabling WAL can improve write performance or help avoid data duplication after breaking changes in schema or logic. Use with care—data may be lost on crash.
+> Skipping the WAL makes writes roughly 3x faster, which is worth it for a
+> database rebuilt from scratch on every run. `close()` still flushes the
+> memtable to SST, so a completed run is durable. Use with care---data written
+> since the last flush may be lost on crash.
 
 ---
 

@@ -1,10 +1,8 @@
-use core::panic;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::PyBytes;
 use rust_rocksdb::{
-    self, DBCompressionType, DBWithThreadMode, MultiThreaded, WaitForCompactOptions, WriteOptions,
+    self, DBCompressionType, DBWithThreadMode, MultiThreaded, WriteOptions,
 };
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -32,14 +30,11 @@ impl RocksDB {
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None, read_only = None, max_log_count = None, write_buffer_mb = None, point_lookup_mb = None, bulk_load = None))]
+    #[pyo3(signature = (path, compression = None, read_only = None, bulk_load = None))]
     fn new(
         path: String,
         compression: Option<String>,
         read_only: Option<bool>,
-        max_log_count: Option<usize>,
-        write_buffer_mb: Option<usize>,
-        point_lookup_mb: Option<u64>,
         bulk_load: Option<bool>,
     ) -> Self {
         // create directory and all parent directory
@@ -68,15 +63,6 @@ impl RocksDB {
             ),
         };
         opts.set_compression_type(codec);
-        // Bigger memtable => fewer flush/compaction cycles during bulk writes.
-        if let Some(mb) = write_buffer_mb {
-            opts.set_write_buffer_size(mb * 1024 * 1024);
-        }
-        // Bloom filters + point-lookup-tuned table options; this workload is
-        // almost entirely point gets (gethits:{gene}, pseq:{sid}:{blk}).
-        if let Some(mb) = point_lookup_mb {
-            opts.optimize_for_point_lookup(mb);
-        }
         // Bulk-load mode for write-once, rebuilt-each-run DBs (e.g. prepare's
         // nt store). Auto-compaction during the load reads freshly-flushed L0
         // SSTs back and re-compresses them L0->L1 (pure write amplification off
@@ -91,7 +77,7 @@ impl RocksDB {
             opts.set_level_zero_slowdown_writes_trigger(1 << 30);
             opts.set_level_zero_stop_writes_trigger(1 << 30);
         }
-        opts.set_keep_log_file_num(max_log_count.unwrap_or(1));
+        opts.set_keep_log_file_num(1);
         let read_only = read_only.unwrap_or(false);
         let unopened_db = || {
             if read_only {
@@ -129,12 +115,6 @@ impl RocksDB {
         write_option.disable_wal(true);
         self.wo = Arc::new(write_option);
     }
-    fn enable_wal(&mut self) {
-        let mut write_option = WriteOptions::new();
-        write_option.disable_wal(false);
-        self.wo = Arc::new(write_option);
-    }
-
     fn put(&self, header: String, sequence: String) {
         if self.read_only {
             return;
@@ -172,114 +152,6 @@ impl RocksDB {
         }
     }
 
-    fn delete(&self, header: String) -> bool {
-        self.handle().delete(header.as_bytes()).is_ok()
-    }
-
-    fn batch_put(&self, inserts: HashMap<String, String>) -> u64 {
-        if self.read_only {
-            return 0;
-        }
-        let mut batch = rust_rocksdb::WriteBatch::default();
-        let mut counter: u64 = 0;
-        for (key, value) in inserts.iter() {
-            batch.put(key.as_bytes(), value.as_bytes());
-            counter += 1;
-        }
-        match self.handle().write_without_wal(&batch) {
-            Ok(_) => counter,
-            Err(_) => 0,
-        }
-    }
-
-    fn batch_put_bytes(&self, inserts: HashMap<Vec<u8>, Vec<u8>>) -> u64 {
-        if self.read_only {
-            return 0;
-        }
-        let mut batch = rust_rocksdb::WriteBatch::default();
-        let mut counter: u64 = 0;
-        for (key, value) in inserts.iter() {
-            batch.put(key, value);
-            counter += 1;
-        }
-        match self.handle().write_without_wal(&batch) {
-            Ok(_) => counter,
-            Err(_) => 0,
-        }
-    }
-
-    fn batch_get<'py>(&self, py: Python<'py>, keys: Vec<String>) -> Bound<'py, PyDict> {
-        let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_bytes()).collect();
-        let packed_results = self.handle().multi_get(&byte_keys);
-        let dict = PyDict::new(py);
-        for (key, pack) in keys.iter().zip(packed_results.iter()) {
-            match pack {
-                Ok(Some(value)) => {
-                    dict.set_item(key, String::from_utf8(value.to_vec()).unwrap())
-                        .unwrap();
-                }
-                Ok(None) => {}
-                Err(_) => {}
-            }
-        }
-        dict
-    }
-
-    fn batch_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Bound<'py, PyDict> {
-        let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
-        let packed_results = self.handle().multi_get(&byte_keys);
-        let dict = PyDict::new(py);
-        for (key, pack) in keys.iter().zip(packed_results.iter()) {
-            match pack {
-                Ok(Some(value)) => {
-                    dict.set_item(
-                        PyBytes::new(py, key),
-                        PyBytes::new(py, value.as_slice()),
-                    )
-                    .unwrap();
-                }
-                Ok(None) => {}
-                Err(_) => {}
-            }
-        }
-        dict
-    }
-
-    /// Batched point-get returning an ordered list aligned to `keys`: each
-    /// element is the value's bytes, or `None` when the key is absent.
-    ///
-    /// Unlike `batch_get_bytes` (which returns a dict and drops misses), this
-    /// preserves input order and position, so callers can zip results straight
-    /// back to their keys -- e.g. assembling a scaffold window from its
-    /// covering `pseq:{sid}:{blk}` chunks in one round trip. Mirrors the
-    /// existing `batch_get_bytes` pattern (single `multi_get`).
-    fn multi_get_bytes<'py>(&self, py: Python<'py>, keys: Vec<Vec<u8>>) -> Vec<Py<PyAny>> {
-        let byte_keys: Vec<&[u8]> = keys.iter().map(|x| x.as_slice()).collect();
-        let packed_results = self.handle().multi_get(&byte_keys);
-        let mut out: Vec<Py<PyAny>> = Vec::with_capacity(packed_results.len());
-        for pack in packed_results.iter() {
-            match pack {
-                Ok(Some(value)) => out.push(PyBytes::new(py, value.as_slice()).into()),
-                Ok(None) => out.push(py.None()),
-                // A real read error (corrupt SST / checksum) is NOT a missing
-                // key -- surface it like get_bytes rather than masking it as
-                // None (which the caller would report as "chunk missing").
-                Err(_) => panic!("Received database error when trying to retrieve sequence"),
-            }
-        }
-        out
-    }
-
-    fn flush(&self) -> bool {
-        match self.handle().flush() {
-            Ok(()) => {}
-            Err(_) => return false,
-        }
-        match self.handle().wait_for_compact(&WaitForCompactOptions::default()) {
-            Ok(()) => true,
-            Err(_) => false,
-        }
-    }
 }
 
 /// A Python module that wraps rocksdb's rust crate.

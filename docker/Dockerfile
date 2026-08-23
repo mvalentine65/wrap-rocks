@@ -1,9 +1,10 @@
 # pull from Alma8 container for working dependencies
 FROM quay.io/pypa/manylinux_2_28_x86_64
 
-# install libclang and librocks
-# cmake builds libz-ng-sys, pulled in by the zlib-ng feature on flate2
-RUN dnf install -y clang rocksdb-devel cmake
+# clang for bindgen (rust-librocksdb-sys generates bindings at build time)
+# and cmake for libz-ng-sys, pulled in by flate2's zlib-ng feature.
+# No rocksdb-devel: the crate vendors and compiles its own RocksDB.
+RUN dnf install -y clang cmake
 
 # set global home variables
 # github actions run under a separate user profile which can't access root's rust bin
