@@ -165,6 +165,13 @@ impl RocksDB {
         self.handle().put_opt(key.as_bytes(), object, &self.wo).unwrap();
     }
 
+    fn delete(&self, key: String) {
+        if self.read_only {
+            return;
+        }
+        self.handle().delete_opt(key.as_bytes(), &self.wo).unwrap();
+    }
+
     fn get_bytes(&self, py: Python, key: String) -> Py<PyAny> {
         match self.handle().get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),

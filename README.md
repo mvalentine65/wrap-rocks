@@ -101,6 +101,10 @@ Stores arbitrary binary data under a string key.
 
 Retrieves binary data as `bytes`. Returns `None` if missing.
 
+### `delete(key: str)`
+
+Removes a key. Absent keys are fine. A no-op on read-only databases.
+
 ---
 
 ### `close()`
