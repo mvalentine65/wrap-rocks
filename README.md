@@ -68,7 +68,7 @@ db.close()
 
 ## ⚖️ API Overview
 
-### `RocksDB(path, compression=None, read_only=None, bulk_load=None)`
+### `RocksDB(path, compression=None, read_only=None, bulk_load=None, write_buffer_mb=None)`
 
 - Initializes a RocksDB database at the given path.
 - Creates directories automatically if missing.
@@ -78,6 +78,8 @@ db.close()
 - `read_only`: open without taking the write lock. Writes become no-ops.
 - `bulk_load`: disable auto-compaction for write-once databases that are
   rebuilt every run. Avoids re-compressing freshly flushed L0 SSTs.
+- `write_buffer_mb`: memtable size in MB (default 64). Raise it for loads of
+  values near or above 64 MB, which otherwise flush one per SST.
 
 ---
 

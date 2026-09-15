@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use rust_rocksdb::{
-    self, DBCompressionType, DBWithThreadMode, MultiThreaded, WriteOptions,
+    self, BlockBasedOptions, DBCompressionType, DBWithThreadMode, MultiThreaded, WriteOptions,
 };
 use std::fs;
 use std::path::Path;
@@ -30,12 +30,13 @@ impl RocksDB {
 
 impl RocksDB {
     #[new]
-    #[pyo3(signature = (path, compression = None, read_only = None, bulk_load = None))]
+    #[pyo3(signature = (path, compression = None, read_only = None, bulk_load = None, write_buffer_mb = None))]
     fn new(
         path: String,
         compression: Option<String>,
         read_only: Option<bool>,
         bulk_load: Option<bool>,
+        write_buffer_mb: Option<usize>,
     ) -> Self {
         // create directory and all parent directory
         if !Path::new(&path).exists() {
@@ -83,6 +84,20 @@ impl RocksDB {
             opts.set_level_zero_slowdown_writes_trigger(1 << 30);
             opts.set_level_zero_stop_writes_trigger(1 << 30);
         }
+        // Memtable size (default 64 MB). Values larger than it flush one per
+        // SST, and each flush allocates the table builder's buffers afresh; a
+        // larger memtable shares one builder across several values.
+        if let Some(mb) = write_buffer_mb {
+            opts.set_write_buffer_size(mb << 20);
+        }
+        // Bloom filter per SST. Compaction is off in bulk-load DBs, so their L0
+        // files keep overlapping key ranges ("key:1".."key:6" spans "key:50"),
+        // and without a filter a Get reads and decompresses a block from each
+        // overlapping file that lacks the key. Readers need a policy set too to
+        // consult it; files written without one read as before.
+        let mut block_opts = BlockBasedOptions::default();
+        block_opts.set_bloom_filter(10.0, false);
+        opts.set_block_based_table_factory(&block_opts);
         opts.set_keep_log_file_num(1);
         let read_only = read_only.unwrap_or(false);
         let unopened_db = || {
