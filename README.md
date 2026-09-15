@@ -105,6 +105,16 @@ Retrieves binary data as `bytes`. Returns `None` if missing.
 
 Removes a key. Absent keys are fine. A no-op on read-only databases.
 
+### `compact_range()`
+
+Runs a full manual compaction and blocks until it finishes. A no-op on
+read-only databases.
+
+> Background compaction is cancelled by `close()`, so a database written in
+> one burst and closed straight after keeps its fresh SSTs piled up in L0,
+> where every later `get` has to probe each of them. Call this before
+> `close()` on a database that is written once and read many times.
+
 ---
 
 ### `close()`

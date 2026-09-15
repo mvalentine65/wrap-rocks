@@ -172,6 +172,25 @@ impl RocksDB {
         self.handle().delete_opt(key.as_bytes(), &self.wo).unwrap();
     }
 
+    /// Run a full manual compaction and block until it finishes.
+    ///
+    /// Auto-compaction runs in the background and is cancelled by `close()`,
+    /// so a DB written in one burst and closed straight after is left with
+    /// its fresh SSTs piled up in L0. L0 files overlap, so every later Get
+    /// probes each of them (and, without a bloom filter, reads and
+    /// decompresses a block from each); with large values that is tens of
+    /// times the cost of a lookup on a compacted DB. Writers that build a DB
+    /// to be read many times (e.g. makeref's orthoset) call this before
+    /// `close()`. No-op on a read-only handle. Releases the GIL while
+    /// RocksDB works.
+    fn compact_range(&self, py: Python) {
+        if self.read_only {
+            return;
+        }
+        let db = Arc::clone(self.db.as_ref().expect("RocksDB handle used after close()"));
+        py.detach(move || db.compact_range(None::<&[u8]>, None::<&[u8]>));
+    }
+
     fn get_bytes(&self, py: Python, key: String) -> Py<PyAny> {
         match self.handle().get(key.as_bytes()) {
             Ok(Some(result)) => PyBytes::new(py, &result.as_slice()).into(),
