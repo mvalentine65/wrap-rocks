@@ -1,6 +1,6 @@
 [package]
 name = "wrap_rocks"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2021"
 # Oldest toolchain we build on; enforced by .cargo/config.toml.
 rust-version = "1.91"

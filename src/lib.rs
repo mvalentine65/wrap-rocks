@@ -6,6 +6,7 @@ use rust_rocksdb::{
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::thread;
 
 #[pyclass]
 pub struct RocksDB {
@@ -47,13 +48,10 @@ impl RocksDB {
         }
         let mut opts = rust_rocksdb::Options::default();
         opts.create_if_missing(true);
-        // Sizes the background pools on the shared default Env: one set per
-        // process, not per handle, and 24 asked for 31 threads in every process
-        // holding a DB. 1 is RocksDB's floor -- GetBGJobLimits clamps to
-        // max(1, ..) -- so an open still spawns one compaction and one flush
-        // thread. Costs ~12% on prepare, the only large writer; the rest are
-        // under 50 MB.
-        opts.increase_parallelism(1);
+        // Flush/compaction pools and subcompactions use every core.
+        let cores = thread::available_parallelism().map_or(1, |n| n.get());
+        opts.increase_parallelism(cores as i32);
+        opts.set_max_subcompactions(cores as u32);
         // Compression codec. Previously the `compression` argument was dead: the
         // match below was immediately overridden by an unconditional
         // set_compression_type(Zstd), so "snappy" silently did nothing.
