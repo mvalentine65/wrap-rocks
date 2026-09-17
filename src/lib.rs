@@ -81,6 +81,8 @@ impl RocksDB {
             opts.set_disable_auto_compactions(true);
             opts.set_level_zero_slowdown_writes_trigger(1 << 30);
             opts.set_level_zero_stop_writes_trigger(1 << 30);
+            // Let flushes run in parallel instead of stopping writes at 2.
+            opts.set_max_write_buffer_number(8);
         }
         // Memtable size (default 64 MB). Values larger than it flush one per
         // SST, and each flush allocates the table builder's buffers afresh; a
